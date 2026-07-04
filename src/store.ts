@@ -24,14 +24,14 @@ export interface StoreService {
 const CACHE_TTL_MS = 10 * 60 * 1000;
 let cache: { services: StoreService[]; fetchedAt: number } | null = null;
 
-/** Snapshot every service on the store (public endpoint pages at 50/page). */
+/** Snapshot every service on the store (public endpoint caps at 50/page). */
 export async function getStoreServices(): Promise<StoreService[]> {
   if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.services;
 
   const services: StoreService[] = [];
   for (let page = 1; page <= 40; page++) {
     const res = await fetch(
-      `${config.croo.apiUrl}/backend/v1/public/services?page=${page}&page_size=100`,
+      `${config.croo.apiUrl}/backend/v1/public/services?page=${page}&page_size=50`,
       { headers: { 'User-Agent': 'surety/0.1' } },
     );
     if (!res.ok) break;

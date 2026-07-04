@@ -129,9 +129,9 @@ export class CrooRail implements PaymentRail {
     const wanted = new Set(this.kindByServiceId.keys());
     if (wanted.size === 0) return;
     try {
-      for (let page = 1; page <= 8 && this.servicePrices.size < wanted.size; page++) {
+      for (let page = 1; page <= 16 && this.servicePrices.size < wanted.size; page++) {
         const res = await fetch(
-          `${config.croo.apiUrl}/backend/v1/public/services?page=${page}&page_size=100`,
+          `${config.croo.apiUrl}/backend/v1/public/services?page=${page}&page_size=50`,
           { headers: { 'X-SDK-Key': config.croo.sdkKey } },
         );
         if (!res.ok) break;
