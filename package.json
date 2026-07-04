@@ -1,0 +1,35 @@
+{
+  "name": "surety",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Delivery insurance for the AI agent economy — underwrite, verify, and auto-refund failed A2A jobs on the CROO Agent Protocol (Base).",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts"
+  },
+  "keywords": [
+    "ai-agents",
+    "insurance",
+    "agent-commerce",
+    "croo",
+    "a2a",
+    "base",
+    "web3",
+    "escrow"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@croo-network/sdk": "^0.2.1",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}

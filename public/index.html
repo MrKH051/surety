@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Surety — Delivery Insurance for the Agent Economy</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" id="logoSlot"></span>
+        <div>
+          <h1>Surety</h1>
+          <p>Delivery insurance for AI agents — verified claims, automatic USDC refunds</p>
+        </div>
+      </div>
+      <div class="badges">
+        <span class="badge" id="railBadge">…</span>
+        <span class="badge" id="llmBadge">…</span>
+        <span class="badge chip-croo">CROO · Base</span>
+      </div>
+    </header>
+
+    <section class="actions">
+      <div class="action-card">
+        <h3>▶ Watch it work</h3>
+        <p class="hint">A customer insures a hire, gets a delivery, files a claim — end to end.</p>
+        <div class="btn-row">
+          <button class="btn btn-bad" id="demoBadBtn"><span>Demo: failed delivery → refund</span></button>
+          <button class="btn btn-good" id="demoGoodBtn"><span>Demo: good delivery → no payout</span></button>
+        </div>
+      </div>
+
+      <div class="action-card">
+        <h3>🛡 Buy cover</h3>
+        <input id="insureService" type="text" placeholder="Store serviceId of the agent you'll hire" autocomplete="off" />
+        <input id="insureReq" type="text" placeholder="What are you asking it to do? (the acceptance contract)" autocomplete="off" />
+        <input id="insureWallet" type="text" placeholder="Refund wallet (0x… or name.base.eth) — optional" autocomplete="off" />
+        <div class="btn-row">
+          <button class="btn" id="insureBtn"><span>Insure this hire</span></button>
+          <button class="btn btn-ghost" id="certBtn" title="Just the underwriting report, no policy"><span>Risk certificate only</span></button>
+        </div>
+      </div>
+
+      <div class="action-card">
+        <h3>⚖ File a claim</h3>
+        <input id="claimPolicy" type="text" placeholder="policyId (pol_…)" autocomplete="off" />
+        <textarea id="claimDeliverable" rows="2" placeholder="Paste the deliverable you received"></textarea>
+        <div class="btn-row">
+          <button class="btn btn-bad" id="claimBtn"><span>File claim</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" id="stats">
+      <div class="stat"><div class="stat-val" id="statFloat">—</div><div class="stat-key">Reserve float (USDC)</div></div>
+      <div class="stat"><div class="stat-val" id="statPremiums">—</div><div class="stat-key">Premiums collected</div></div>
+      <div class="stat"><div class="stat-val" id="statPayouts">—</div><div class="stat-key">Claims refunded</div></div>
+      <div class="stat"><div class="stat-val" id="statActive">—</div><div class="stat-key">Active policies</div></div>
+    </section>
+
+    <section class="network" id="network">
+      <!-- Tier 1: the insured customer -->
+      <div class="tier tier-top">
+        <div class="node node-client" id="node-client" data-node="client"></div>
+      </div>
+      <div class="link-rail"><span class="link-dot"></span></div>
+
+      <!-- Tier 2: the insurer -->
+      <div class="tier tier-mid">
+        <div class="node node-hub" id="node-surety" data-node="surety"></div>
+      </div>
+      <div class="link-rail link-fan"><span></span><span></span><span></span></div>
+
+      <!-- Tier 3: third-party specialists hired live from the CROO store -->
+      <div class="tier tier-bottom">
+        <div class="node" id="node-trust" data-node="trust"></div>
+        <div class="node" id="node-verifier" data-node="verifier"></div>
+        <div class="node" id="node-payout" data-node="payout"></div>
+      </div>
+    </section>
+
+    <div class="columns">
+      <section class="panel">
+        <div class="panel-head"><h2>Live transaction feed</h2><span class="pulse-dot"></span></div>
+        <p class="hint">Every line is a real step of the on-chain escrow lifecycle between two agents.</p>
+        <ul class="feed" id="feed"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Policy book</h2></div>
+        <p class="hint">Premium in → risk-priced coverage out. Policies survive restarts.</p>
+        <ul class="book" id="policyList"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Claims &amp; verdicts</h2></div>
+        <p class="hint">Independent verifier hired per claim; approved claims refund automatically.</p>
+        <ul class="book" id="claimList"></ul>
+      </section>
+    </div>
+
+    <div class="coin-layer" id="coinLayer"></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
