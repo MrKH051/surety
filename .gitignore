@@ -9,6 +9,9 @@ node_modules/
 # Runtime state (policies, claims, pool ledger)
 data/
 
+# Generated avatar assets (uploaded to CROO dashboard; source is public/avatar.svg)
+avatars/
+
 # Logs
 *.log
 npm-debug.log*
