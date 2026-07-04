@@ -38,14 +38,14 @@
         stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- coin accent: the USDC refund -->
-  <radialGradient id="coin" cx="0.35" cy="0.3" r="0.9">
-    <stop offset="0" stop-color="#ffe9a8"/>
-    <stop offset="0.55" stop-color="#f7c948"/>
-    <stop offset="1" stop-color="#d9992b"/>
+  <radialGradient id="coin" cx="0.35" cy="0.3" r="0.95">
+    <stop offset="0" stop-color="#d9fff4"/>
+    <stop offset="0.5" stop-color="#34d399"/>
+    <stop offset="1" stop-color="#0e7490"/>
   </radialGradient>
   <circle cx="366" cy="352" r="60" fill="#06120d" opacity="0.85"/>
   <circle cx="366" cy="352" r="54" fill="url(#coin)"/>
-  <circle cx="366" cy="352" r="44" fill="none" stroke="#a86f1c" stroke-opacity="0.55" stroke-width="3"/>
+  <circle cx="366" cy="352" r="44" fill="none" stroke="#065f46" stroke-opacity="0.5" stroke-width="3"/>
   <text x="366" y="373" font-family="Segoe UI, Arial, sans-serif" font-size="60"
-        font-weight="800" fill="#5b3d00" text-anchor="middle">$</text>
+        font-weight="800" fill="#03251f" text-anchor="middle">$</text>
 </svg>
