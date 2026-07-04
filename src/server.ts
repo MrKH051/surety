@@ -104,7 +104,9 @@ async function runDemo(rail: PaymentRail, outcome: 'good' | 'bad'): Promise<void
 async function main() {
   const rail = await buildRail();
   const app = express();
-  app.use(express.json());
+  // strict:false so a plain-text JSON string body works too (buyers on the
+  // store often send free text; the API mirrors that tolerance).
+  app.use(express.json({ strict: false }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   // Tell the UI which rail is live and whether a real AI brain is configured.

@@ -27,13 +27,51 @@ import type { PaymentRail, SoldServiceHandler, SoldServiceKind } from './rail/ty
  */
 
 function field(input: unknown, ...names: string[]): string {
-  if (typeof input === 'string') return input;
-  const obj = (input ?? {}) as Record<string, unknown>;
+  const obj = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   for (const n of names) {
     const v = obj[n];
     if (typeof v === 'string' && v.trim()) return v.trim();
+    if (typeof v === 'number') return String(v);
   }
   return '';
+}
+
+// ---- Plain-text tolerance ----------------------------------------------
+// Buyers on the store often type free text instead of JSON. Every product
+// accepts that: ids and wallets are extracted from the text, and a service
+// can even be referenced by its NAME (matched against the live store list).
+
+const SERVICE_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/i;
+const POLICY_ID = /\bpol_[0-9a-z]{8}\b/i;
+const WALLET = /\b0x[0-9a-fA-F]{40}\b|\b[a-z0-9][a-z0-9-]*\.base\.eth\b/;
+
+function asText(input: unknown): string {
+  return typeof input === 'string' ? input.trim() : '';
+}
+
+/** Find the serviceId in structured fields, raw text, or by service NAME. */
+async function resolveServiceId(input: unknown, text: string): Promise<string> {
+  const explicit = field(input, 'serviceId', 'insuredServiceId', 'targetServiceId', 'service');
+  if (explicit) return explicit;
+  const inText = text.match(SERVICE_ID)?.[0];
+  if (inText) return inText;
+  if (text) {
+    try {
+      const { getStoreServices } = await import('./store.js');
+      const lower = text.toLowerCase();
+      const named = (await getStoreServices())
+        .filter((s) => s.name.length >= 5 && lower.includes(s.name.toLowerCase()))
+        .sort((a, b) => b.name.length - a.name.length)[0];
+      if (named) return named.serviceId;
+    } catch {
+      /* store unreachable — fall through to the error below */
+    }
+  }
+  return '';
+}
+
+function resolveWallet(input: unknown, text: string): string {
+  return field(input, 'payoutAddress', 'wallet', 'refundAddress', 'to') || (text.match(WALLET)?.[0] ?? '');
 }
 
 export function buildSoldServices(
@@ -42,10 +80,14 @@ export function buildSoldServices(
 ): Record<SoldServiceKind, SoldServiceHandler> {
   /** 1) INSURE A HIRE — underwrite the target, bind a policy, take the premium. */
   const insure: SoldServiceHandler = async (input) => {
-    const serviceId = field(input, 'serviceId', 'insuredServiceId', 'targetServiceId', 'service');
-    const requirements = field(input, 'requirements', 'job', 'task', 'query', 'description');
-    const payoutAddress = field(input, 'payoutAddress', 'wallet', 'refundAddress', 'to');
-    if (!serviceId) throw new Error('Missing "serviceId" — which store service do you want to insure?');
+    const text = asText(input);
+    const serviceId = await resolveServiceId(input, text);
+    const requirements = field(input, 'requirements', 'job', 'task', 'query', 'description') || text;
+    const payoutAddress = resolveWallet(input, text);
+    if (!serviceId)
+      throw new Error(
+        'Which store service do you want to insure? Send {"serviceId": "...", "requirements": "..."} or plain text that mentions the serviceId or the exact service name.',
+      );
     if (!requirements) throw new Error('Missing "requirements" — what are you asking that agent to do?');
 
     const uw = await underwrite(rail(), serviceId, requirements);
@@ -73,10 +115,14 @@ export function buildSoldServices(
 
   /** 2) FILE A CLAIM — verify the delivery, refund if it failed. */
   const claim: SoldServiceHandler = async (input) => {
-    const policyId = field(input, 'policyId', 'policy');
-    const deliverable = field(input, 'deliverable', 'delivery', 'output', 'result');
-    const payoutAddress = field(input, 'payoutAddress', 'wallet', 'refundAddress', 'to');
-    if (!policyId) throw new Error('Missing "policyId".');
+    const text = asText(input);
+    const policyId = field(input, 'policyId', 'policy') || (text.match(POLICY_ID)?.[0] ?? '');
+    const deliverable = field(input, 'deliverable', 'delivery', 'output', 'result') || text;
+    const payoutAddress = resolveWallet(input, text);
+    if (!policyId)
+      throw new Error(
+        'Missing policyId — mention it in your message (it looks like pol_1a2b3c4d and is on your Insure a Hire deliverable).',
+      );
 
     recordPremium(prices.claim); // the claim-filing fee is revenue too
     rail().credit('surety', prices.claim);
@@ -105,8 +151,12 @@ export function buildSoldServices(
 
   /** 3) AGENT RISK CERTIFICATE — underwriting intelligence as a standalone product. */
   const certificate: SoldServiceHandler = async (input) => {
-    const serviceId = field(input, 'serviceId', 'targetServiceId', 'service', 'agentId');
-    if (!serviceId) throw new Error('Missing "serviceId" — which store service should be assessed?');
+    const text = asText(input);
+    const serviceId = (await resolveServiceId(input, text)) || field(input, 'agentId');
+    if (!serviceId)
+      throw new Error(
+        'Which store service should be assessed? Send {"serviceId": "..."} or plain text that mentions the serviceId or the exact service name.',
+      );
 
     recordPremium(prices.certificate);
     rail().credit('surety', prices.certificate);
