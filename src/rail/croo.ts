@@ -203,6 +203,13 @@ export class CrooRail implements PaymentRail {
       const pending = e.order_id ? this.pendingByOrder.get(e.order_id) : undefined;
       if (pending) this.fail(pending, new Error(`Order rejected: ${e.reason ?? 'unknown'}`));
     });
+
+    // A provider can refuse before any order exists — fail fast instead of
+    // burning the whole hire timeout waiting for an order that never comes.
+    this.stream.on(EventType.NegotiationRejected, (e: any) => {
+      const pending = e.negotiation_id ? this.pendingByNeg.get(e.negotiation_id) : undefined;
+      if (pending) this.fail(pending, new Error('Negotiation rejected by the provider.'));
+    });
   }
 
   /**
