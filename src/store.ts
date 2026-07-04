@@ -106,7 +106,15 @@ export async function specialistCandidates(kind: SpecialistKind): Promise<StoreS
         s.price <= maxPrice &&
         !excludeAgentIds.includes(s.agentId),
     )
-    .sort((a, b) => a.rank - b.rank || b.s.orders7d - a.s.orders7d || a.s.price - b.s.price)
+    // Active agents first (real orders in the last 7 days ⇒ likely online),
+    // then keyword relevance, then traction, then price.
+    .sort(
+      (a, b) =>
+        Number(b.s.orders7d > 0) - Number(a.s.orders7d > 0) ||
+        a.rank - b.rank ||
+        b.s.orders7d - a.s.orders7d ||
+        a.s.price - b.s.price,
+    )
     .map(({ s }) => s)
     .slice(0, 3);
 

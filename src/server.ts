@@ -84,10 +84,16 @@ async function runDemo(rail: PaymentRail, outcome: 'good' | 'bad'): Promise<void
   });
 
   // 1) The customer buys cover for the job before hiring the agent.
+  // In croo mode a payout would send REAL USDC — only use the placeholder
+  // address offline, or an explicitly configured demo wallet.
+  const demoPayout =
+    process.env.DEMO_PAYOUT_ADDRESS ??
+    (config.rail === 'sim' ? '0xC0FFEE000000000000000000000000000000cafe' : '');
+
   const policyOut = (await customerPurchase(rail, 'insure', {
     serviceId: 'demo_translation_agent',
     requirements: DEMO_REQUIREMENTS,
-    payoutAddress: '0xC0FFEE000000000000000000000000000000cafe',
+    ...(demoPayout ? { payoutAddress: demoPayout } : {}),
   })) as { policyId: string };
 
   await sleep(700);

@@ -286,7 +286,7 @@ export class CrooRail implements PaymentRail {
     return new Promise<HireResult>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.fail(pending, new Error(`Order to ${req.toName ?? to} timed out.`));
-      }, 180_000);
+      }, config.external.orderTimeoutMs);
 
       const pending: Pending = {
         to,
