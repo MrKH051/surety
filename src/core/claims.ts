@@ -76,7 +76,7 @@ async function hireVerifier(
     return null;
   }
 
-  for (const c of candidates) {
+  for (const c of candidates.slice(0, 2)) {
     // The agent whose work is disputed must never judge its own delivery.
     if (excludeAgentId && c.agentId === excludeAgentId) continue;
     try {
@@ -126,7 +126,7 @@ async function sendPayout(
     }
   }
 
-  for (const c of candidates) {
+  for (const c of candidates.slice(0, 2)) {
     // Don't overpay fees on tiny refunds: skip payment agents that cost
     // more than the refund itself.
     if (c.price > amount) continue;

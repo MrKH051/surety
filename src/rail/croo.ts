@@ -30,6 +30,7 @@ interface Pending {
   toName?: string;
   capability: string;
   price: number;
+  negotiationId?: string;
   orderId?: string;
   resolve: (r: HireResult) => void;
   reject: (e: Error) => void;
@@ -302,6 +303,13 @@ export class CrooRail implements PaymentRail {
 
     return new Promise<HireResult>((resolve, reject) => {
       const timer = setTimeout(() => {
+        // Withdraw the offer so a late-accepting provider doesn't end up
+        // with an orphan on-chain order nobody will ever pay.
+        if (pending.negotiationId && !pending.orderId) {
+          this.client
+            .rejectNegotiation(pending.negotiationId, 'Offer expired (provider did not accept in time).')
+            .catch(() => {});
+        }
         this.fail(pending, new Error(`Order to ${req.toName ?? to} timed out.`));
       }, config.external.orderTimeoutMs);
 
@@ -323,7 +331,10 @@ export class CrooRail implements PaymentRail {
       this.phase(pending, 'negotiate');
       this.client
         .negotiateOrder({ serviceId, requirements: JSON.stringify(input) })
-        .then((neg: any) => this.pendingByNeg.set(neg.negotiationId, pending))
+        .then((neg: any) => {
+          pending.negotiationId = neg.negotiationId;
+          this.pendingByNeg.set(neg.negotiationId, pending);
+        })
         .catch((err: unknown) => this.fail(pending, err));
     });
   }

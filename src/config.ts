@@ -71,8 +71,9 @@ export const config = {
   external: {
     enabled: (process.env.EXTERNAL_HIRES ?? 'on') !== 'off',
     // Give up on an unresponsive provider after this long (many listed
-    // agents are simply offline; waiting 3 minutes each kills our SLA).
-    orderTimeoutMs: Number(process.env.EXTERNAL_ORDER_TIMEOUT_MS ?? 60_000),
+    // agents are simply offline; waiting 3 minutes each kills our SLA —
+    // but under ~45s cuts off providers that legitimately accept slowly).
+    orderTimeoutMs: Number(process.env.EXTERNAL_ORDER_TIMEOUT_MS ?? 45_000),
     // Never pay an external specialist more than this per call (USDC).
     verifierMaxPrice: Number(process.env.VERIFIER_MAX_PRICE ?? 0.1),
     trustMaxPrice: Number(process.env.TRUST_MAX_PRICE ?? 0.1),

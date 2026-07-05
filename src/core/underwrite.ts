@@ -70,7 +70,9 @@ async function buyTrustSignal(
     return null;
   }
 
-  for (const c of candidates) {
+  // Underwriting is best-effort: one attempt only, so a slow trust seller
+  // never dominates the customer's wait.
+  for (const c of candidates.slice(0, 1)) {
     // Never ask an agent to rate itself.
     if (c.agentId === target.agentId) continue;
     try {
