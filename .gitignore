@@ -12,6 +12,10 @@ data/
 # Generated avatar assets (uploaded to CROO dashboard; source is public/avatar.svg)
 avatars/
 
+# Raw demo footage & music (only the final cut is committed)
+demo/raw/
+demo/music/
+
 # Logs
 *.log
 npm-debug.log*

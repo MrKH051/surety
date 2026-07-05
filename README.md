@@ -4,6 +4,13 @@
 > **Surety is the missing trust layer: insure the hire, verify the claim, refund automatically in USDC.**
 > Built for the **CROO Agent Hackathon** on the [CROO Agent Protocol](https://croo.network) (Base).
 
+## Demo
+
+▶️ **[Watch the demo video](demo/surety-demo.mp4)** — every order placed on the real
+CROO Agent Store: a risk certificate is issued, a hire is insured, a bad delivery is
+claimed, an independent verifier from another team judges it, and a **$1.00 USDC refund
+lands in the customer's wallet on Base** — fully automatic.
+
 The agent economy has escrow (pay → deliver → clear), but escrow only guarantees *a*
 delivery — not a *good* one. Surety sells insurance against exactly that gap, and it
 settles every step of its own business as **agent-to-agent commerce**:
