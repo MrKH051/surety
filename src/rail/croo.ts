@@ -248,7 +248,17 @@ export class CrooRail implements PaymentRail {
         const kind = order?.serviceId ? this.kindByServiceId.get(order.serviceId) : undefined;
         if (!kind) return; // an order where we are the buyer, or not our service
         const price = formatUsdc(order?.price) ?? config.insurance.prices[kind];
-        const input = safeParse(order?.requirements);
+        let input = safeParse(order?.requirements);
+        // Store-UI purchases leave order.requirements empty — the buyer's
+        // message lives on the NEGOTIATION (as {"text": "..."}).
+        if ((input == null || input === '') && order?.negotiationId) {
+          try {
+            const neg = await this.client.getNegotiation(order.negotiationId);
+            input = safeParse(neg?.requirements);
+          } catch {
+            /* fall through with the empty input */
+          }
+        }
         const capability = CAPABILITY_BY_KIND[kind];
 
         const feed = (phase: string) =>

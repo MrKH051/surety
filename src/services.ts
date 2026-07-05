@@ -46,7 +46,22 @@ const POLICY_ID = /\bpol_[0-9a-z]{8}\b/i;
 const WALLET = /\b0x[0-9a-fA-F]{40}\b|\b[a-z0-9][a-z0-9-]*\.base\.eth\b/;
 
 function asText(input: unknown): string {
-  return typeof input === 'string' ? input.trim() : '';
+  if (typeof input === 'string') return input.trim();
+  if (input && typeof input === 'object') {
+    // The store UI (and many agent frameworks) wrap the buyer's message,
+    // e.g. {"text": "..."} — unwrap the first text-bearing field.
+    const obj = input as Record<string, unknown>;
+    for (const k of ['text', 'message', 'prompt', 'content', 'request', 'input', 'query']) {
+      const v = obj[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+  }
+  return '';
+}
+
+/** Collapse to lowercase alphanumerics so dashes/case/spacing never matter. */
+function squash(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
 /** Find the serviceId in structured fields, raw text, or by service NAME. */
@@ -58,11 +73,31 @@ async function resolveServiceId(input: unknown, text: string): Promise<string> {
   if (text) {
     try {
       const { getStoreServices } = await import('./store.js');
-      const lower = text.toLowerCase();
-      const named = (await getStoreServices())
-        .filter((s) => s.name.length >= 5 && lower.includes(s.name.toLowerCase()))
-        .sort((a, b) => b.name.length - a.name.length)[0];
-      if (named) return named.serviceId;
+      const services = await getStoreServices();
+      const squashed = squash(text);
+
+      // Pass 1: the full service name appears in the text (dashes, case and
+      // spacing ignored) — "ZERU deFi Intelligence..." matches "ZERU — DeFi...".
+      const whole = services
+        .filter((s) => squash(s.name).length >= 6 && squashed.includes(squash(s.name)))
+        .sort((a, b) => squash(b.name).length - squash(a.name).length)[0];
+      if (whole) return whole.serviceId;
+
+      // Pass 2: most of the name's distinctive words appear in the text.
+      const textWords = new Set(text.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+      let best: { s: (typeof services)[number]; score: number } | undefined;
+      for (const s of services) {
+        const words = s.name.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+        if (words.length === 0) continue;
+        const hit = words.filter((w) => textWords.has(w)).length;
+        const score = hit / words.length;
+        if (hit >= Math.min(2, words.length) && score >= 0.6) {
+          if (!best || score > best.score || (score === best.score && words.length > squash(best.s.name).length)) {
+            best = { s, score };
+          }
+        }
+      }
+      if (best) return best.s.serviceId;
     } catch {
       /* store unreachable — fall through to the error below */
     }
