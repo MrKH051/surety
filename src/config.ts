@@ -46,6 +46,9 @@ export const config = {
 
     // Display-only float shown on the dashboard in croo mode.
     startBalance: Number(process.env.CROO_START_BALANCE ?? 25),
+
+    // Native USDC on Base — the fund token for claim-refund transfers.
+    usdcAddress: process.env.CROO_USDC_ADDRESS ?? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
   },
 
   // Underwriting & claims parameters (USDC, human units).

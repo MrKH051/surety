@@ -329,8 +329,17 @@ export class CrooRail implements PaymentRail {
       };
 
       this.phase(pending, 'negotiate');
+      // Fund-transfer services (payment agents) need the principal declared
+      // up front; the pay tx then moves fee + fund together.
+      const fund =
+        req.fundUsdc && req.fundUsdc > 0
+          ? {
+              fundAmount: String(Math.round(req.fundUsdc * 1_000_000)),
+              fundToken: config.croo.usdcAddress,
+            }
+          : {};
       this.client
-        .negotiateOrder({ serviceId, requirements: JSON.stringify(input) })
+        .negotiateOrder({ serviceId, requirements: JSON.stringify(input), ...fund })
         .then((neg: any) => {
           pending.negotiationId = neg.negotiationId;
           this.pendingByNeg.set(neg.negotiationId, pending);

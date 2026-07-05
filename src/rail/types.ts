@@ -11,6 +11,11 @@ export interface HireRequest {
   serviceId?: string;
   /** Display name of the third-party service (shown in the feed/network). */
   toName?: string;
+  /**
+   * Principal USDC to transfer WITH the order (fund-transfer services, e.g.
+   * a payment agent forwarding a claim refund). Paid on top of the fee.
+   */
+  fundUsdc?: number;
 }
 
 export interface HireResult {

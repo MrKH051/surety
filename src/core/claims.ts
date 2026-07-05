@@ -146,6 +146,8 @@ async function sendPayout(
           memo: 'Surety insurance claim refund',
         },
         price: c.price,
+        // The refund principal rides along as an on-chain fund transfer.
+        fundUsdc: amount,
       });
       recordCost(r.price);
       return { status: 'paid', via: c.name, orderId: r.orderId };
