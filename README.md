@@ -101,8 +101,9 @@ ollama pull llama3.1     # defaults in .env.example already point at it
 ### SDK methods used
 
 `AgentClient`, `connectWebSocket`, `negotiateOrder`, `acceptNegotiation`, `payOrder`,
-`getOrder`, `deliverOrder`, `getDelivery`, plus events `NegotiationCreated`, `OrderCreated`,
-`OrderPaid`, `OrderCompleted`, `OrderRejected` — and the public store API
+`getOrder`, `deliverOrder`, `getDelivery`, plus events `NegotiationCreated`,
+`NegotiationRejected`, `OrderCreated`, `OrderPaid`, `OrderCompleted`, `OrderRejected` —
+and the public store API
 (`/backend/v1/public/services`) for live specialist discovery.
 
 ## Run it 24/7 on a VPS
