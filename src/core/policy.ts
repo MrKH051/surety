@@ -14,7 +14,13 @@ import { emit } from '../bus.js';
  */
 
 export type RiskBand = 'LOW' | 'MEDIUM' | 'HIGH';
-export type PolicyStatus = 'active' | 'expired' | 'claim_pending' | 'claim_denied' | 'claim_paid';
+export type PolicyStatus =
+  | 'active'
+  | 'expired'
+  | 'claim_pending'
+  | 'claim_denied'
+  | 'claim_paid'
+  | 'claim_owed'; // approved, but the on-chain refund hasn't settled yet
 export type Verdict = 'satisfied' | 'unsatisfied' | 'inconclusive';
 
 export interface Policy {

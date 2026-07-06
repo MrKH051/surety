@@ -73,10 +73,13 @@ export const config = {
   // Hiring third-party specialists from the CROO Agent Store.
   external: {
     enabled: (process.env.EXTERNAL_HIRES ?? 'on') !== 'off',
-    // Give up on an unresponsive provider after this long (many listed
-    // agents are simply offline; waiting 3 minutes each kills our SLA —
-    // but under ~45s cuts off providers that legitimately accept slowly).
-    orderTimeoutMs: Number(process.env.EXTERNAL_ORDER_TIMEOUT_MS ?? 45_000),
+    // Give up on an unresponsive provider after this long. The full on-chain
+    // order lifecycle (accept → create → pay → deliver) can take ~90-120s, so
+    // anything under that strangles legitimate hires.
+    orderTimeoutMs: Number(process.env.EXTERNAL_ORDER_TIMEOUT_MS ?? 150_000),
+
+    // Only hire agents whose completion rate is at least this (0-100).
+    minCompletionRate: Number(process.env.MIN_COMPLETION_RATE ?? 95),
     // Never pay an external specialist more than this per call (USDC).
     verifierMaxPrice: Number(process.env.VERIFIER_MAX_PRICE ?? 0.1),
     trustMaxPrice: Number(process.env.TRUST_MAX_PRICE ?? 0.1),

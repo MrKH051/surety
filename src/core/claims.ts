@@ -234,9 +234,16 @@ export async function processClaim(rail: PaymentRail, req: ClaimRequest): Promis
       } else {
         payout = { amount, status: 'owed' };
       }
-      recordPayout(amount);
-      rail.deduct('surety', amount);
-      policy.status = 'claim_paid';
+      // Only draw down the reserve when the refund ACTUALLY settled on-chain.
+      // An 'owed' claim is a tracked liability, not a cash outflow — so a
+      // failed/mock payment agent can never silently drain the pool.
+      if (payout.status === 'paid') {
+        recordPayout(amount);
+        rail.deduct('surety', amount);
+        policy.status = 'claim_paid';
+      } else {
+        policy.status = 'claim_owed'; // approved, refund not yet settled on-chain
+      }
     } else {
       policy.status = 'claim_denied';
     }

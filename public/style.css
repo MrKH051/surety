@@ -264,7 +264,7 @@ body {
   padding: 3px 9px; border-radius: 999px; font-weight: 800; white-space: nowrap;
 }
 .tag.LOW, .tag.active, .tag.satisfied { background: rgba(67, 224, 160, 0.14); color: var(--green); }
-.tag.MEDIUM, .tag.claim_pending, .tag.inconclusive { background: rgba(247, 201, 72, 0.14); color: var(--gold); }
+.tag.MEDIUM, .tag.claim_pending, .tag.claim_owed, .tag.inconclusive { background: rgba(247, 201, 72, 0.14); color: var(--gold); }
 .tag.HIGH, .tag.claim_paid, .tag.unsatisfied { background: rgba(251, 113, 133, 0.15); color: var(--red); }
 .tag.claim_denied { background: rgba(143, 184, 172, 0.14); color: var(--muted); }
 .tag.expired { background: rgba(143, 184, 172, 0.1); color: var(--muted); }
