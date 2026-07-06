@@ -126,47 +126,46 @@ async function sendPayout(
     }
   }
 
-  for (const c of candidates.slice(0, 2)) {
+  // One attempt against a candidate with a chosen fund setting. Returns a real
+  // on-chain tx hash only if the payment actually settled — an order that
+  // completes with no tx (e.g. a "risk scan" service that merely echoes) is
+  // NOT a real payment and is rejected so we try a genuine sender next.
+  const tryPay = async (c: StoreService, withFund: boolean): Promise<string | null> => {
+    const r = await rail.hire({
+      from: 'surety',
+      to: 'payout',
+      toName: c.name,
+      serviceId: c.serviceId,
+      capability: 'payout.usdc',
+      input: { to, recipient: to, address: to, amount, amountUsdc: amount, memo: 'Surety insurance claim refund' },
+      price: c.price,
+      ...(withFund ? { fundUsdc: amount } : {}),
+    });
+    recordCost(r.price);
+    const rr = r.result as any;
+    const tx = typeof rr?.txHash === 'string' ? rr.txHash : typeof rr?.fundTxHash === 'string' ? rr.fundTxHash : '';
+    return /^0x[0-9a-fA-F]{64}$/.test(tx) ? tx : null;
+  };
+
+  for (const c of candidates.slice(0, 3)) {
     // Don't overpay fees on tiny refunds: skip payment agents that cost
     // more than the refund itself.
     if (c.price > amount) continue;
-    try {
-      const r = await rail.hire({
-        from: 'surety',
-        to: 'payout',
-        toName: c.name,
-        serviceId: c.serviceId,
-        capability: 'payout.usdc',
-        input: {
-          to,
-          recipient: to,
-          address: to,
-          amount,
-          amountUsdc: amount,
-          memo: 'Surety insurance claim refund',
-        },
-        price: c.price,
-        // Declare the principal as a fund transfer ONLY when the payment
-        // service is configured to require it — sending fund fields to a
-        // non-fund service makes the CROO API reject the negotiation.
-        ...(c.fundRequired ? { fundUsdc: amount } : {}),
-      });
-      recordCost(r.price);
-      // The payment agent returns an on-chain receipt — surface its tx hash.
-      const rr = r.result as any;
-      const txHash =
-        typeof rr?.txHash === 'string'
-          ? rr.txHash
-          : typeof rr?.fundTxHash === 'string'
-            ? rr.fundTxHash
-            : undefined;
-      return { status: 'paid', via: c.name, orderId: r.orderId, ...(txHash ? { txHash } : {}) };
-    } catch (err) {
-      emit({
-        type: 'log',
-        level: 'warn',
-        message: `Payout via "${c.name}" failed (${String((err as Error).message ?? err)}) — trying next.`,
-      });
+    // Try per the service's declared fund requirement first; if that's
+    // rejected (payment services flip this over time), try the opposite once.
+    for (const withFund of c.fundRequired ? [true, false] : [false, true]) {
+      try {
+        const txHash = await tryPay(c, withFund);
+        if (txHash) return { status: 'paid', via: c.name, orderId: '', txHash };
+        emit({ type: 'log', level: 'warn', message: `"${c.name}" completed with no payment tx — trying next sender.` });
+        break; // it delivered but didn't pay; a fund-flag flip won't help
+      } catch (err) {
+        emit({
+          type: 'log',
+          level: 'warn',
+          message: `Payout via "${c.name}" (fund=${withFund}) failed (${String((err as Error).message ?? err)}).`,
+        });
+      }
     }
   }
 
