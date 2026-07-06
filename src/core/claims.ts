@@ -146,8 +146,10 @@ async function sendPayout(
           memo: 'Surety insurance claim refund',
         },
         price: c.price,
-        // The refund principal rides along as an on-chain fund transfer.
-        fundUsdc: amount,
+        // Declare the principal as a fund transfer ONLY when the payment
+        // service is configured to require it — sending fund fields to a
+        // non-fund service makes the CROO API reject the negotiation.
+        ...(c.fundRequired ? { fundUsdc: amount } : {}),
       });
       recordCost(r.price);
       // The payment agent returns an on-chain receipt — surface its tx hash.

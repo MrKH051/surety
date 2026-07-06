@@ -19,6 +19,18 @@ export interface StoreService {
   description: string;
   price: number; // USDC, human units
   orders7d: number;
+  /** Whether this service needs the principal declared as an on-chain fund transfer. */
+  fundRequired: boolean;
+}
+
+/** Read `fund_transfer_required` from a service's feeConfig (may be a JSON string). */
+function parseFundRequired(feeConfig: unknown): boolean {
+  try {
+    const cfg = typeof feeConfig === 'string' ? JSON.parse(feeConfig) : feeConfig;
+    return Boolean((cfg as any)?.fund_transfer_required);
+  } catch {
+    return false;
+  }
 }
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -46,6 +58,7 @@ export async function getStoreServices(): Promise<StoreService[]> {
         description: String(it.description ?? ''),
         price: Number(it.price ?? 0) / 1_000_000,
         orders7d: Number(it.orders7d ?? 0),
+        fundRequired: parseFundRequired(it.feeConfig),
       });
     }
     const total = Number(data.total ?? 0);
