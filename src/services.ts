@@ -1,5 +1,6 @@
 import { emit } from './bus.js';
 import { llm } from './llm.js';
+import { certificateSummary, claimSummary, policySummary } from './humanize.js';
 import { underwrite } from './core/underwrite.js';
 import { processClaim } from './core/claims.js';
 import {
@@ -168,6 +169,16 @@ export function buildSoldServices(
       ...(payoutAddress ? { payoutAddress } : {}),
     });
     return {
+      summary: claimSummary({
+        approved: c.payout.status !== 'none',
+        verdict: c.verdict,
+        confidence: c.confidence,
+        refundUsdc: c.payout.amount,
+        refundStatus: c.payout.status,
+        via: c.payout.via ?? null,
+        txHash: c.payout.txHash,
+        verifierName: c.externalVerifier?.serviceName ?? null,
+      }),
       claimId: c.claimId,
       policyId: c.policyId,
       verdict: c.verdict,
@@ -176,7 +187,12 @@ export function buildSoldServices(
       refund:
         c.payout.status === 'none'
           ? null
-          : { amountUsdc: c.payout.amount, status: c.payout.status, via: c.payout.via ?? null },
+          : {
+              amountUsdc: c.payout.amount,
+              status: c.payout.status,
+              via: c.payout.via ?? null,
+              txHash: c.payout.txHash ?? null,
+            },
       independentVerifier: c.externalVerifier
         ? { service: c.externalVerifier.serviceName, opinion: c.externalVerifier.opinion }
         : null,
@@ -212,12 +228,22 @@ export function buildSoldServices(
     }
 
     return {
+      summary: certificateSummary({
+        serviceName: uw.service?.name ?? null,
+        serviceId,
+        riskScore: uw.riskScore,
+        riskBand: bandFor(uw.riskScore),
+        analystNote: summary,
+        premiumUsdc: premium,
+        coverageUsdc: coverage,
+        trustFrom: uw.trustHire?.serviceName ?? null,
+      }),
       certificate: 'Surety Agent Risk Certificate v1',
       serviceId,
       serviceName: uw.service?.name ?? null,
       riskScore: uw.riskScore,
       riskBand: bandFor(uw.riskScore),
-      summary,
+      analystNote: summary,
       signals: uw.rationale,
       indicativeTerms: {
         premiumUsdc: premium,
@@ -236,6 +262,7 @@ function policyDeliverable(
   trustHire?: { serviceName: string; priceUsdc: number; orderId: string },
 ) {
   return {
+    summary: policySummary(policy, trustHire?.serviceName),
     policy: 'Surety Delivery Insurance v1',
     policyId: policy.policyId,
     insured: {

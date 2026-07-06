@@ -48,7 +48,7 @@ export interface Claim {
   confidence: number;
   rationale: string;
   externalVerifier?: { serviceName: string; priceUsdc: number; orderId: string; opinion: string };
-  payout: { amount: number; status: 'paid' | 'owed' | 'none'; via?: string; orderId?: string };
+  payout: { amount: number; status: 'paid' | 'owed' | 'none'; via?: string; orderId?: string; txHash?: string };
 }
 
 /** The reserve pool ledger (USDC, human units). */

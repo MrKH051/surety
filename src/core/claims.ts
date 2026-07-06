@@ -116,7 +116,7 @@ async function sendPayout(
   rail: PaymentRail,
   amount: number,
   to: string,
-): Promise<{ status: 'paid' | 'owed'; via?: string; orderId?: string }> {
+): Promise<{ status: 'paid' | 'owed'; via?: string; orderId?: string; txHash?: string }> {
   let candidates: StoreService[] = [];
   if (config.external.enabled) {
     try {
@@ -150,7 +150,15 @@ async function sendPayout(
         fundUsdc: amount,
       });
       recordCost(r.price);
-      return { status: 'paid', via: c.name, orderId: r.orderId };
+      // The payment agent returns an on-chain receipt — surface its tx hash.
+      const rr = r.result as any;
+      const txHash =
+        typeof rr?.txHash === 'string'
+          ? rr.txHash
+          : typeof rr?.fundTxHash === 'string'
+            ? rr.fundTxHash
+            : undefined;
+      return { status: 'paid', via: c.name, orderId: r.orderId, ...(txHash ? { txHash } : {}) };
     } catch (err) {
       emit({
         type: 'log',
