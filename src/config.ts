@@ -70,6 +70,22 @@ export const config = {
     seedCapital: Number(process.env.SEED_CAPITAL ?? 5),
     // Hard cap on any single policy's coverage.
     maxCoverage: Number(process.env.MAX_COVERAGE ?? 1.0),
+
+    // ---- Value-based pricing ----
+    // Coverage is tied to the VALUE AT RISK (the price of the insured service),
+    // risk-adjusted, but never more than `coverageMultiple` × the premium — so a
+    // tiny premium can't buy huge cover. Expensive hires need a higher tier.
+    coverageMultiple: Number(process.env.COVERAGE_MULTIPLE ?? 10),
+    // Share of the insured service's price we'll cover, by risk band.
+    coverageShare: {
+      low: Number(process.env.COVERAGE_SHARE_LOW ?? 1.0),
+      medium: Number(process.env.COVERAGE_SHARE_MEDIUM ?? 0.7),
+      high: Number(process.env.COVERAGE_SHARE_HIGH ?? 0.4),
+    },
+    // Suggested premium when quoting: a % of the insured service's price,
+    // with a floor that must exceed our per-claim adjudication cost.
+    premiumRate: Number(process.env.PREMIUM_RATE ?? 0.15),
+    premiumFloor: Number(process.env.PREMIUM_FLOOR ?? 0.05),
     // Policy lifetime in hours.
     policyHours: Number(process.env.POLICY_HOURS ?? 24),
     // Payout requires at least this adjudication confidence.

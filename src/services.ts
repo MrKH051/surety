@@ -9,8 +9,10 @@ import {
   createPolicy,
   getPool,
   poolFloat,
+  quoteCoverage,
   recordPremium,
   round6,
+  suggestedPremium,
   type Policy,
 } from './core/policy.js';
 import type { PaymentRail, SoldServiceHandler, SoldServiceKind } from './rail/types.js';
@@ -129,7 +131,9 @@ export function buildSoldServices(
 
     const uw = await underwrite(rail(), serviceId, requirements);
     const premium = prices.insure;
-    const coverage = coverageFor(premium, uw.riskScore);
+    // Coverage is anchored to what the buyer actually paid the insured agent.
+    const insuredValue = uw.service?.price ?? 0;
+    const coverage = coverageFor(premium, uw.riskScore, insuredValue);
 
     const policy = createPolicy({
       insuredServiceId: serviceId,
@@ -223,8 +227,11 @@ export function buildSoldServices(
     rail().credit('surety', prices.certificate);
 
     const uw = await underwrite(rail(), serviceId, 'General reliability assessment for a prospective buyer.');
-    const premium = prices.insure;
-    const coverage = coverageFor(premium, uw.riskScore);
+    const insuredValue = uw.service?.price ?? 0;
+    // Quote what a properly-priced tier would cover for this hire's full value,
+    // and the FAIR premium for that coverage — so premium never exceeds cover.
+    const coverage = insuredValue > 0 ? quoteCoverage(insuredValue, uw.riskScore) : coverageFor(prices.insure, uw.riskScore);
+    const premium = insuredValue > 0 ? suggestedPremium(coverage, uw.riskScore) : prices.insure;
 
     let summary = '';
     try {

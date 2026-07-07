@@ -131,17 +131,69 @@ export function recordPayout(amount: number): void {
   emit({ type: 'pool', pool: getPool(), float: poolFloat() });
 }
 
-/** Coverage multiplier by risk band: safer targets earn more coverage per premium. */
-export function coverageFor(premium: number, riskScore: number): number {
-  const multiplier = riskScore < 30 ? 20 : riskScore < 60 ? 12 : 6;
-  let coverage = premium * multiplier;
-  coverage = Math.min(coverage, config.insurance.maxCoverage);
-  // Solvency guard: never promise more than half of the current float
-  // (bootstrapping exception: allow the very first policies a floor).
+/**
+ * VALUE-BASED COVERAGE. Coverage is anchored to the VALUE AT RISK — the price
+ * the buyer actually paid the insured agent — not a blind multiple of our
+ * premium. It is then bounded by four sane limits so the pool stays solvent
+ * and a tiny premium can't buy huge cover:
+ *   1. risk share    — cover 100% of a safe hire's value, less as risk rises
+ *   2. premium cap    — never more than `coverageMultiple` × the premium
+ *   3. hard cap       — MAX_COVERAGE
+ *   4. solvency guard — at most half of the reserve float
+ *
+ * `insuredValue` is the insured service's real store price (0 if unknown).
+ */
+export function coverageFor(premium: number, riskScore: number, insuredValue = 0): number {
+  const share =
+    riskScore < 30
+      ? config.insurance.coverageShare.low
+      : riskScore < 60
+        ? config.insurance.coverageShare.medium
+        : config.insurance.coverageShare.high;
+
+  // Value at risk. If we couldn't read the insured service's price, fall back
+  // to the premium-multiple cap alone (conservative).
+  const atRisk = insuredValue > 0 ? insuredValue * share : premium * config.insurance.coverageMultiple;
+
   const float = poolFloat();
-  const solvencyCap = Math.max(float * 0.5, premium * 4);
-  coverage = Math.min(coverage, solvencyCap);
+  const coverage = Math.min(
+    atRisk,
+    premium * config.insurance.coverageMultiple,
+    config.insurance.maxCoverage,
+    Math.max(float * 0.5, premium * 2), // solvency guard, with a bootstrap floor
+  );
   return round6(coverage);
+}
+
+/**
+ * Value-based coverage for a QUOTE — bounded only by the hard cap and pool
+ * solvency (NOT by any specific premium), so a certificate can show what a
+ * properly-priced tier would cover for this service's full value.
+ */
+export function quoteCoverage(insuredValue: number, riskScore: number): number {
+  const share =
+    riskScore < 30
+      ? config.insurance.coverageShare.low
+      : riskScore < 60
+        ? config.insurance.coverageShare.medium
+        : config.insurance.coverageShare.high;
+  const float = poolFloat();
+  return round6(Math.min(insuredValue * share, config.insurance.maxCoverage, Math.max(float * 0.5, 0.5)));
+}
+
+/**
+ * A fair premium for a given coverage amount. The rate rises with risk (a
+ * riskier hire is likelier to pay out) and is floored so it can't fall below
+ * our per-claim cost.
+ */
+export function suggestedPremium(coverage: number, riskScore: number): number {
+  const rate =
+    riskScore < 30
+      ? config.insurance.premiumRate
+      : riskScore < 60
+        ? config.insurance.premiumRate * 1.5
+        : config.insurance.premiumRate * 2.5;
+  return round6(Math.max(config.insurance.premiumFloor, coverage * rate));
 }
 
 export function bandFor(riskScore: number): RiskBand {
