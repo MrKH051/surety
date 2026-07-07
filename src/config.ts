@@ -39,7 +39,9 @@ export const config = {
 
     // Our three listed services on the CROO Agent Store.
     serviceIds: {
-      insure: process.env.CROO_INSURE_SERVICE_ID ?? '',
+      insure: process.env.CROO_INSURE_SERVICE_ID ?? '', // Standard tier
+      insurePlus: process.env.CROO_INSURE_PLUS_SERVICE_ID ?? '',
+      insurePro: process.env.CROO_INSURE_PRO_SERVICE_ID ?? '',
       claim: process.env.CROO_CLAIM_SERVICE_ID ?? '',
       certificate: process.env.CROO_CERTIFICATE_SERVICE_ID ?? '',
     },
@@ -86,6 +88,15 @@ export const config = {
     // with a floor that must exceed our per-claim adjudication cost.
     premiumRate: Number(process.env.PREMIUM_RATE ?? 0.15),
     premiumFloor: Number(process.env.PREMIUM_FLOOR ?? 0.05),
+
+    // "Insure a Hire" tiers — each is a separate fixed-price store listing.
+    // A policy never covers more than its tier's cap, so a $0.05 Standard
+    // policy on a $20 hire pays at most $0.50 (the buyer is warned).
+    tiers: {
+      standard: { premium: Number(process.env.INSURE_PRICE ?? 0.05), maxCover: Number(process.env.INSURE_STANDARD_MAXCOVER ?? 0.5) },
+      plus: { premium: Number(process.env.INSURE_PLUS_PRICE ?? 0.3), maxCover: Number(process.env.INSURE_PLUS_MAXCOVER ?? 3) },
+      pro: { premium: Number(process.env.INSURE_PRO_PRICE ?? 1.0), maxCover: Number(process.env.INSURE_PRO_MAXCOVER ?? 10) },
+    },
     // Policy lifetime in hours.
     policyHours: Number(process.env.POLICY_HOURS ?? 24),
     // Payout requires at least this adjudication confidence.

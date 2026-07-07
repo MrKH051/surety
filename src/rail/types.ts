@@ -25,8 +25,16 @@ export interface HireResult {
   price: number;
 }
 
-/** Fulfils one of Surety's own SOLD services when an external buyer pays. */
-export type SoldServiceHandler = (input: unknown, orderId: string) => Promise<unknown>;
+/**
+ * Fulfils one of Surety's own SOLD services when an external buyer pays.
+ * `servedServiceId` is the exact store listing that was bought — used to pick
+ * the right insurance tier (Standard / Plus / Pro).
+ */
+export type SoldServiceHandler = (
+  input: unknown,
+  orderId: string,
+  servedServiceId?: string,
+) => Promise<unknown>;
 
 /** Which of our sold services an incoming order maps to. */
 export type SoldServiceKind = 'insure' | 'claim' | 'certificate';

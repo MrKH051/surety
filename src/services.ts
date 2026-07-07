@@ -1,3 +1,4 @@
+import { config } from './config.js';
 import { emit } from './bus.js';
 import { llm } from './llm.js';
 import { certificateSummary, claimSummary, policySummary } from './humanize.js';
@@ -118,7 +119,7 @@ export function buildSoldServices(
   prices: { insure: number; claim: number; certificate: number },
 ): Record<SoldServiceKind, SoldServiceHandler> {
   /** 1) INSURE A HIRE — underwrite the target, bind a policy, take the premium. */
-  const insure: SoldServiceHandler = async (input) => {
+  const insure: SoldServiceHandler = async (input, _orderId, servedServiceId) => {
     const text = asText(input);
     const serviceId = await resolveServiceId(input, text);
     const requirements = field(input, 'requirements', 'job', 'task', 'query', 'description') || text;
@@ -129,11 +130,16 @@ export function buildSoldServices(
       );
     if (!requirements) throw new Error('Missing "requirements" — what are you asking that agent to do?');
 
+    // Which tier did the buyer purchase? (Standard / Plus / Pro.)
+    const tier = tierFor(servedServiceId);
+
     const uw = await underwrite(rail(), serviceId, requirements);
-    const premium = prices.insure;
-    // Coverage is anchored to what the buyer actually paid the insured agent.
+    const premium = tier.premium;
     const insuredValue = uw.service?.price ?? 0;
-    const coverage = coverageFor(premium, uw.riskScore, insuredValue);
+    // Coverage is value-based, then hard-capped at the tier the buyer paid for.
+    const coverage = Math.min(coverageFor(premium, uw.riskScore, insuredValue), tier.maxCover);
+    // Under-insured? The hire is worth more than this tier can ever cover.
+    const underinsured = insuredValue > tier.maxCover;
 
     const policy = createPolicy({
       insuredServiceId: serviceId,
@@ -151,7 +157,11 @@ export function buildSoldServices(
     recordPremium(premium);
     rail().credit('surety', premium);
 
-    return policyDeliverable(policy, uw.trustHire);
+    return policyDeliverable(policy, uw.trustHire, {
+      tier: tier.label,
+      insuredValue,
+      underinsured,
+    });
   };
 
   /** 2) FILE A CLAIM — verify the delivery, refund if it failed. */
@@ -274,21 +284,43 @@ export function buildSoldServices(
   return { insure, claim, certificate };
 }
 
+interface Tier {
+  label: 'Standard' | 'Plus' | 'Pro';
+  premium: number;
+  maxCover: number;
+}
+
+/** Map the purchased store listing to its insurance tier (default: Standard). */
+function tierFor(servedServiceId?: string): Tier {
+  const t = config.insurance.tiers;
+  if (servedServiceId && servedServiceId === config.croo.serviceIds.insurePro) {
+    return { label: 'Pro', ...t.pro };
+  }
+  if (servedServiceId && servedServiceId === config.croo.serviceIds.insurePlus) {
+    return { label: 'Plus', ...t.plus };
+  }
+  return { label: 'Standard', ...t.standard };
+}
+
 function policyDeliverable(
   policy: Policy,
   trustHire?: { serviceName: string; priceUsdc: number; orderId: string },
+  tierInfo?: { tier: string; insuredValue: number; underinsured: boolean },
 ) {
   return {
-    summary: policySummary(policy, trustHire?.serviceName),
+    summary: policySummary(policy, trustHire?.serviceName, tierInfo),
     policy: 'Surety Delivery Insurance v1',
     policyId: policy.policyId,
+    tier: tierInfo?.tier ?? 'Standard',
     insured: {
       serviceId: policy.insuredServiceId,
       serviceName: policy.insuredServiceName,
+      priceUsdc: tierInfo?.insuredValue ?? null,
     },
     requirements: policy.requirements,
     premiumUsdc: policy.premium,
     coverageUsdc: policy.coverage,
+    underinsured: tierInfo?.underinsured ?? false,
     riskScore: policy.riskScore,
     riskBand: policy.riskBand,
     expiresAt: new Date(policy.expiresAt).toISOString(),

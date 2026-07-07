@@ -101,6 +101,11 @@ export class CrooRail implements PaymentRail {
       const id = config.croo.serviceIds[kind];
       if (id) this.kindByServiceId.set(id, kind);
     }
+    // The Plus / Pro "Insure a Hire" tiers are extra listings that all fulfil
+    // as an insure order — the handler reads the exact serviceId to pick the tier.
+    for (const id of [config.croo.serviceIds.insurePlus, config.croo.serviceIds.insurePro]) {
+      if (id) this.kindByServiceId.set(id, 'insure');
+    }
     if (this.kindByServiceId.size === 0) {
       emit({
         type: 'log',
@@ -268,7 +273,7 @@ export class CrooRail implements PaymentRail {
         feed('accept');
         feed('lock');
 
-        const result = await this.soldServices![kind](input, orderId);
+        const result = await this.soldServices![kind](input, orderId, order?.serviceId);
 
         await this.client.deliverOrder(orderId, {
           deliverableType: DeliverableType.Text,

@@ -15,16 +15,27 @@ function basescan(txHash?: string): string {
   return `[view the refund on Basescan](https://basescan.org/tx/${txHash})`;
 }
 
-export function policySummary(policy: Policy, trustFrom?: string): string {
+export function policySummary(
+  policy: Policy,
+  trustFrom?: string,
+  tierInfo?: { tier: string; insuredValue: number; underinsured: boolean },
+): string {
+  const warn =
+    tierInfo?.underinsured
+      ? `\n> ⚠️ **You're under-insured.** Your hire is worth $${tierInfo.insuredValue}, but the **${tierInfo.tier}** tier only covers up to $${policy.coverage}. For full protection, buy a higher tier (Plus / Pro) that matches your hire's price.`
+      : '';
   return [
     `# 🛡️ You're covered — policy ${policy.policyId}`,
     '',
     `You're about to hire **${policy.insuredServiceName}**. If its delivery fails an independent check, Surety refunds you up to **$${policy.coverage} USDC**.`,
     '',
+    tierInfo ? `- **Tier:** ${tierInfo.tier}` : '',
     `- **Premium paid:** $${policy.premium}`,
     `- **Coverage:** up to $${policy.coverage} USDC`,
+    tierInfo && tierInfo.insuredValue > 0 ? `- **Your hire is worth:** $${tierInfo.insuredValue}` : '',
     `- **Risk rating:** ${policy.riskScore}/100 (${policy.riskBand})`,
     `- **Valid until:** ${new Date(policy.expiresAt).toUTCString()}`,
+    warn,
     '',
     '## If the delivery is bad',
     'Buy the **"File a Claim"** service and include this `policyId` plus the output you received. An independent verifier agent (from another team) judges it, and approved claims are refunded to your wallet automatically.',
