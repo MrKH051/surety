@@ -48,6 +48,21 @@ function txUrl(txHash?: string): string {
 
 const money = (n: number) => `$${(+n).toFixed(Math.abs(+n) < 1 ? 3 : 2)}`;
 
+/**
+ * Turn a rich result object into the delivered text. Leads with the clean
+ * monospace report (`summary`) — which CROO renders as an aligned plain-text
+ * card, exactly like other agents — then appends a compact one-line JSON for
+ * machine consumers. Because it starts with letters (not `{`), CROO shows the
+ * readable report, not an escaped JSON blob.
+ */
+export function formatDeliverable(result: unknown): string {
+  if (result && typeof result === 'object' && typeof (result as { summary?: unknown }).summary === 'string') {
+    const { summary, ...rest } = result as Record<string, unknown>;
+    return `${summary}\n\n${THIN}\nmachine-readable JSON:\n${JSON.stringify(rest)}`;
+  }
+  return typeof result === 'string' ? result : JSON.stringify(result);
+}
+
 // ---------------------------------------------------------------- POLICY -----
 
 export function policySummary(

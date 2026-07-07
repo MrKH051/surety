@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { emit, type AgentName } from '../bus.js';
+import { formatDeliverable } from '../humanize.js';
 import type {
   HireRequest,
   HireResult,
@@ -277,7 +278,7 @@ export class CrooRail implements PaymentRail {
 
         await this.client.deliverOrder(orderId, {
           deliverableType: DeliverableType.Text,
-          deliverableText: JSON.stringify(result),
+          deliverableText: formatDeliverable(result),
         });
         feed('deliver');
         feed('clear');
