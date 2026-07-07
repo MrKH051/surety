@@ -190,6 +190,8 @@ export function buildSoldServices(
     });
     return {
       summary: claimSummary({
+        claimId: c.claimId,
+        policyId: c.policyId,
         approved: c.payout.status !== 'none',
         verdict: c.verdict,
         confidence: c.confidence,

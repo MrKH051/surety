@@ -1,51 +1,107 @@
 import type { Policy } from './core/policy.js';
 
 /**
- * HUMAN-READABLE DELIVERY SUMMARIES.
+ * HUMAN-READABLE DELIVERY REPORTS.
  *
- * Every deliverable leads with a plain-language `summary` (Markdown) so a
- * customer who opens the raw order JSON understands what they got at a glance.
- * Real on-chain refunds link straight to Basescan. Machine-readable fields
- * stay on the object below the summary for agent consumers.
+ * Every deliverable leads with a clean, monospace-aligned `summary` report —
+ * scannable at a glance in the CROO "View JSON" panel, like a printed
+ * certificate. Machine-readable fields stay on the object below it.
  */
 
-/** Only link a hash that is a real on-chain tx (the sim rail uses 0xsim…). */
-function basescan(txHash?: string): string {
-  if (!txHash || txHash.startsWith('0xsim') || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return '';
-  return `[view the refund on Basescan](https://basescan.org/tx/${txHash})`;
+const W = 52; // report width
+const LW = 15; // label column width
+const HEAVY = '='.repeat(W);
+const THIN = '-'.repeat(W);
+
+/** "Label        value" with an aligned label column. */
+function row(label: string, value: string | number): string {
+  return label.padEnd(LW) + String(value);
 }
+
+/** A 10-segment text meter, e.g. 80% -> ████████░░ */
+function bar(pct: number): string {
+  const filled = Math.max(0, Math.min(10, Math.round((pct / 100) * 10)));
+  return '█'.repeat(filled) + '░'.repeat(10 - filled);
+}
+
+/** Wrap free text to the report width, indented. */
+function wrap(text: string, indent = ''): string[] {
+  const out: string[] = [];
+  let line = indent;
+  for (const word of text.split(/\s+/)) {
+    if ((line + ' ' + word).trimEnd().length > W && line.trim()) {
+      out.push(line.trimEnd());
+      line = indent + word;
+    } else {
+      line = line.trim() === '' ? indent + word : line + ' ' + word;
+    }
+  }
+  if (line.trim()) out.push(line.trimEnd());
+  return out;
+}
+
+/** A real on-chain tx link (the sim rail uses 0xsim… which we skip). */
+function txUrl(txHash?: string): string {
+  if (!txHash || txHash.startsWith('0xsim') || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return '';
+  return `https://basescan.org/tx/${txHash}`;
+}
+
+const money = (n: number) => `$${(+n).toFixed(Math.abs(+n) < 1 ? 3 : 2)}`;
+
+// ---------------------------------------------------------------- POLICY -----
 
 export function policySummary(
   policy: Policy,
   trustFrom?: string,
   tierInfo?: { tier: string; insuredValue: number; underinsured: boolean },
 ): string {
-  const warn =
-    tierInfo?.underinsured
-      ? `\n> ⚠️ **You're under-insured.** Your hire is worth $${tierInfo.insuredValue}, but the **${tierInfo.tier}** tier only covers up to $${policy.coverage}. For full protection, buy a higher tier (Plus / Pro) that matches your hire's price.`
-      : '';
-  return [
-    `# 🛡️ You're covered — policy ${policy.policyId}`,
-    '',
-    `You're about to hire **${policy.insuredServiceName}**. If its delivery fails an independent check, Surety refunds you up to **$${policy.coverage} USDC**.`,
-    '',
-    tierInfo ? `- **Tier:** ${tierInfo.tier}` : '',
-    `- **Premium paid:** $${policy.premium}`,
-    `- **Coverage:** up to $${policy.coverage} USDC`,
-    tierInfo && tierInfo.insuredValue > 0 ? `- **Your hire is worth:** $${tierInfo.insuredValue}` : '',
-    `- **Risk rating:** ${policy.riskScore}/100 (${policy.riskBand})`,
-    `- **Valid until:** ${new Date(policy.expiresAt).toUTCString()}`,
-    warn,
-    '',
-    '## If the delivery is bad',
-    'Buy the **"File a Claim"** service and include this `policyId` plus the output you received. An independent verifier agent (from another team) judges it, and approved claims are refunded to your wallet automatically.',
-    trustFrom ? `\n_Risk priced using a trust report bought from **${trustFrom}**._` : '',
-  ]
-    .filter((l) => l !== '')
-    .join('\n');
+  const lines = [
+    'SURETY — DELIVERY INSURANCE POLICY',
+    HEAVY,
+    row('Policy ID', policy.policyId),
+    row('Status', 'ACTIVE'),
+  ];
+  if (tierInfo) lines.push(row('Tier', tierInfo.tier));
+  lines.push(row('Insured hire', policy.insuredServiceName));
+  if (tierInfo && tierInfo.insuredValue > 0) lines.push(row('Hire value', money(tierInfo.insuredValue)));
+  lines.push(
+    THIN,
+    row('Premium paid', `${money(policy.premium)} USDC`),
+    row('Coverage', `up to ${money(policy.coverage)} USDC`),
+    row('Risk rating', `${policy.riskScore}/100  ${policy.riskBand.padEnd(6)} ${bar(policy.riskScore)}`),
+    row('Valid until', new Date(policy.expiresAt).toUTCString()),
+    HEAVY,
+  );
+
+  if (tierInfo?.underinsured) {
+    lines.push('!  UNDER-INSURED');
+    lines.push(
+      ...wrap(
+        `Your ${money(tierInfo.insuredValue)} hire exceeds the ${tierInfo.tier} cap (${money(policy.coverage)}). Buy the Plus or Pro tier for full coverage.`,
+        '   ',
+      ),
+      '',
+    );
+  }
+
+  lines.push('HOW TO CLAIM');
+  lines.push(
+    ...wrap(
+      'If the delivery fails, buy "File a Claim" with this policyId and the output you received. An independent verifier judges it; approved claims refund in USDC automatically.',
+      '   ',
+    ),
+  );
+  if (trustFrom) {
+    lines.push('', ...wrap(`Risk priced with a trust report bought from ${trustFrom}.`));
+  }
+  return lines.join('\n');
 }
 
+// ----------------------------------------------------------------- CLAIM -----
+
 export function claimSummary(opts: {
+  claimId?: string;
+  policyId?: string;
   approved: boolean;
   verdict: string;
   confidence: number;
@@ -56,46 +112,44 @@ export function claimSummary(opts: {
   verifierName?: string | null;
   proof?: { provided: boolean; valid: boolean; txHash?: string; reason: string } | null;
 }): string {
-  const head = opts.approved
-    ? `# ✅ Claim approved — $${opts.refundUsdc} USDC refunded`
-    : `# ❌ Claim denied`;
-
-  const lines = [head, ''];
-
-  if (opts.approved) {
-    const link = basescan(opts.txHash);
-    lines.push(
-      `The delivery did **not** meet the agreed requirements, so your coverage was paid out.`,
-      '',
-      `- **Refund:** $${opts.refundUsdc} USDC (${opts.refundStatus}${opts.via ? ` via ${opts.via}` : ''})`,
-      link ? `- **Proof:** ${link}` : '- _Refund is queued; the on-chain receipt will follow._',
-    );
-  } else {
-    lines.push(
-      opts.verdict === 'satisfied'
-        ? `The delivery **met** the agreed requirements, so no refund is due — the agent did its job.`
-        : `The evidence was **inconclusive**, so no automatic refund was issued.`,
-    );
-  }
-
+  const lines = ['SURETY — CLAIM ADJUDICATION', HEAVY];
+  if (opts.claimId) lines.push(row('Claim ID', opts.claimId));
+  if (opts.policyId) lines.push(row('Policy', opts.policyId));
   lines.push(
-    '',
-    `**Verdict:** ${opts.verdict} · **confidence ${Math.round((opts.confidence ?? 0) * 100)}%**`,
-    opts.verifierName ? `_Judged independently by **${opts.verifierName}**, hired from another team — never the agent being disputed._` : '',
+    row('Verdict', opts.verdict.toUpperCase()),
+    row('Confidence', `${Math.round((opts.confidence ?? 0) * 100)}%  ${bar((opts.confidence ?? 0) * 100)}`),
+    THIN,
   );
 
-  // On-chain proof line, if the claimant attached one.
-  if (opts.proof?.provided) {
-    const link = basescan(opts.proof.txHash);
+  if (opts.approved) {
     lines.push(
-      '',
-      opts.proof.valid
-        ? `🔗 **On-chain proof verified** on Base — ${opts.proof.reason} ${link}`.trim()
-        : `⛔ **On-chain proof failed** — ${opts.proof.reason}`,
+      row('Decision', 'CLAIM APPROVED'),
+      row('Refund', `${money(opts.refundUsdc)} USDC  (${opts.refundStatus}${opts.via ? ` via ${opts.via}` : ''})`),
+    );
+    const url = txUrl(opts.txHash);
+    if (url) lines.push(row('Receipt', url));
+    else lines.push(row('Receipt', 'queued — on-chain receipt to follow'));
+  } else {
+    lines.push(
+      row('Decision', 'CLAIM DENIED'),
+      row('Reason', opts.verdict === 'satisfied' ? 'delivery met the requirements' : 'inconclusive / unverified evidence'),
     );
   }
-  return lines.filter((l) => l !== '').join('\n');
+
+  if (opts.verifierName) lines.push(row('Verifier', opts.verifierName));
+  if (opts.proof?.provided) {
+    lines.push(row('On-chain proof', opts.proof.valid ? 'VERIFIED — real CROO order on Base' : `FAILED — ${opts.proof.reason}`));
+    const purl = txUrl(opts.proof.txHash);
+    if (opts.proof.valid && purl) lines.push(row('Proof tx', purl));
+  }
+  lines.push(HEAVY);
+  lines.push(
+    ...wrap('Judged independently by an agent hired from another team — never the agent whose work is disputed.'),
+  );
+  return lines.join('\n');
 }
+
+// ----------------------------------------------------------- CERTIFICATE -----
 
 export function certificateSummary(opts: {
   serviceName: string | null;
@@ -107,17 +161,21 @@ export function certificateSummary(opts: {
   coverageUsdc: number;
   trustFrom?: string | null;
 }): string {
-  return [
-    `# 📊 Risk Certificate — ${opts.serviceName ?? opts.serviceId}`,
-    '',
-    `**Risk score: ${opts.riskScore}/100 (${opts.riskBand})**`,
-    '',
-    opts.analystNote,
-    '',
-    '## If you want to insure a hire of this agent',
-    `A **$${opts.premiumUsdc}** premium would buy you up to **$${opts.coverageUsdc} USDC** of coverage.`,
-    opts.trustFrom ? `\n_Assessed using a trust report bought from **${opts.trustFrom}**._` : '',
-  ]
-    .filter((l) => l !== '')
-    .join('\n');
+  const lines = [
+    'SURETY — AGENT RISK CERTIFICATE',
+    HEAVY,
+    row('Service', opts.serviceName ?? opts.serviceId),
+    row('Service ID', opts.serviceId),
+    row('Risk score', `${opts.riskScore}/100  ${opts.riskBand.padEnd(6)} ${bar(opts.riskScore)}`),
+    THIN,
+    ...wrap(opts.analystNote.replace(/\s+/g, ' ').trim()),
+    THIN,
+    'INDICATIVE INSURANCE TERMS',
+    row('   Premium', `${money(opts.premiumUsdc)} USDC`),
+    row('   Coverage', `up to ${money(opts.coverageUsdc)} USDC`),
+    THIN,
+  ];
+  if (opts.trustFrom) lines.push(row('Trust data', opts.trustFrom));
+  lines.push(row('Issued', new Date().toUTCString()), HEAVY);
+  return lines.join('\n');
 }
