@@ -117,9 +117,31 @@ export async function getAgentReputation(): Promise<Map<string, AgentRep>> {
 export type SpecialistKind = 'verifier' | 'trust' | 'payout';
 
 const KEYWORDS: Record<SpecialistKind, string[]> = {
-  verifier: ['verif', 'verdict', 'evaluate', 'fact-check', 'fact check', 'grade', 'audit'],
+  // Ordered strongest→weakest. A verifier must judge whether a *delivery*
+  // meets its requirements — NOT check a crypto token. Delivery/output/claim
+  // reviewers rank first; generic "verify/fact-check" only as a last resort.
+  verifier: [
+    'delivery verdict', 'output audit', 'output verification', 'claim review',
+    'claim verification', 'against contract', 'evaluate delivery', 'deliverable',
+    'consistency check', 'hallucination', 'grade', 'evaluate', 'fact-check', 'fact check', 'verif',
+  ],
   trust: ['trust score', 'due diligence', 'reputation', 'risk', 'score'],
-  payout: ['usdc pay', 'payment', 'send usdc', 'pay'],
+  payout: ['usdc pay', 'send usdc', 'instant usdc', 'payment', 'pay'],
+};
+
+// A service is NEVER eligible for a role if its name/description matches one of
+// these — they're the wrong TOOL even when a keyword accidentally matches
+// (e.g. "Verify Crypto Shill" is a token checker, not a delivery verifier).
+const BLOCK: Record<SpecialistKind, string[]> = {
+  verifier: [
+    'shill', 'token', 'memecoin', 'meme coin', 'rug', 'honeypot', 'smart contract',
+    'contract audit', 'repo', 'github', 'depeg', 'stablecoin', 'wallet', 'address risk',
+    'nft', 'price feed', 'gas ', 'sql', 'solana', 'on-chain', 'onchain', 'crypto',
+    'defi', 'liquidity', 'holder', 'whale', 'sanctions', 'kyb', 'kyc', 'nutrition',
+    'freight', 'vehicle', 'drug', 'patch', 'code',
+  ],
+  trust: ['shill', 'memecoin', 'honeypot', 'nutrition', 'freight', 'vehicle', 'drug'],
+  payout: ['risk scan', 'risk check', 'audit', 'analytics', 'logging', 'signal', 'identity'],
 };
 
 /**
@@ -140,8 +162,13 @@ export async function specialistCandidates(kind: SpecialistKind): Promise<StoreS
     payout: config.external.pinnedPayoutServiceId,
   }[kind];
   const keywords = KEYWORDS[kind];
+  const blocked = BLOCK[kind];
 
   const [services, reputation] = await Promise.all([getStoreServices(), getAgentReputation()]);
+  const isBlocked = (s: StoreService): boolean => {
+    const blob = `${s.name} ${s.description}`.toLowerCase();
+    return blocked.some((b) => blob.includes(b));
+  };
   const rank = (s: StoreService): number => {
     const name = s.name.toLowerCase();
     const desc = s.description.toLowerCase();
@@ -167,6 +194,7 @@ export async function specialistCandidates(kind: SpecialistKind): Promise<StoreS
         s.price > 0 &&
         s.price <= maxPrice &&
         !excludeAgentIds.includes(s.agentId) &&
+        !isBlocked(s) &&
         trustworthy(s.agentId),
     )
     // Online + active agents first, then keyword relevance, then traction.
