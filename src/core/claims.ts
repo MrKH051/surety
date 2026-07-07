@@ -87,10 +87,14 @@ async function hireVerifier(
         serviceId: c.serviceId,
         capability: 'verify.delivery',
         input: {
-          task: 'Judge whether the deliverable satisfies the stated requirements. Answer with PASS or FAIL plus a short reason.',
-          requirements,
+          // Clear roles so the verifier never confuses OUR ask with the buyer's.
+          instruction:
+            'You are adjudicating an insurance claim. Decide ONLY whether seller_delivery fulfils buyer_requirement — the thing the BUYER originally hired the SELLER to produce. PASS if the delivery meets the requirement, FAIL if it does not. Judge the delivery, not the buyer.',
+          buyer_requirement: requirements.slice(0, 1500),
+          seller_delivery: deliverable.slice(0, 4000),
+          // Legacy aliases some verifier agents expect:
+          requirements: requirements.slice(0, 1500),
           deliverable: deliverable.slice(0, 4000),
-          claim: `Requirements: ${requirements.slice(0, 800)}\n\nDeliverable to judge:\n${deliverable.slice(0, 2500)}`,
         },
         price: c.price,
       });
