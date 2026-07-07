@@ -45,6 +45,7 @@ function field(input: unknown, ...names: string[]): string {
 const SERVICE_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/i;
 const POLICY_ID = /\bpol_[0-9a-z]{8}\b/i;
 const WALLET = /\b0x[0-9a-fA-F]{40}\b|\b[a-z0-9][a-z0-9-]*\.base\.eth\b/;
+const TXHASH = /\b0x[0-9a-fA-F]{64}\b/; // 32-byte tx hash (distinct from a 20-byte wallet)
 
 function asText(input: unknown): string {
   if (typeof input === 'string') return input.trim();
@@ -155,6 +156,10 @@ export function buildSoldServices(
     const policyId = field(input, 'policyId', 'policy') || (text.match(POLICY_ID)?.[0] ?? '');
     const deliverable = field(input, 'deliverable', 'delivery', 'output', 'result') || text;
     const payoutAddress = resolveWallet(input, text);
+    // Optional on-chain proof: the tx hash of the claimant's CROO order.
+    const proofTxHash =
+      field(input, 'proofTxHash', 'txHash', 'deliverTxHash', 'orderTxHash', 'proof', 'tx') ||
+      (text.match(TXHASH)?.[0] ?? '');
     if (!policyId)
       throw new Error(
         'Missing policyId — mention it in your message (it looks like pol_1a2b3c4d and is on your Insure a Hire deliverable).',
@@ -167,6 +172,7 @@ export function buildSoldServices(
       policyId,
       deliverable,
       ...(payoutAddress ? { payoutAddress } : {}),
+      ...(proofTxHash ? { proofTxHash } : {}),
     });
     return {
       summary: claimSummary({
@@ -178,11 +184,15 @@ export function buildSoldServices(
         via: c.payout.via ?? null,
         txHash: c.payout.txHash,
         verifierName: c.externalVerifier?.serviceName ?? null,
+        proof: c.proof ?? null,
       }),
       claimId: c.claimId,
       policyId: c.policyId,
       verdict: c.verdict,
       confidence: c.confidence,
+      onchainProof: c.proof
+        ? { provided: c.proof.provided, verified: c.proof.valid, txHash: c.proof.txHash ?? null, note: c.proof.reason }
+        : { provided: false, verified: false, note: 'No on-chain proof supplied.' },
       approved: c.payout.status !== 'none',
       refund:
         c.payout.status === 'none'

@@ -54,6 +54,8 @@ export interface Claim {
   confidence: number;
   rationale: string;
   externalVerifier?: { serviceName: string; priceUsdc: number; orderId: string; opinion: string };
+  /** Automatic on-chain verification of the claimant's order proof (if any). */
+  proof?: { provided: boolean; valid: boolean; txHash?: string; reason: string };
   payout: { amount: number; status: 'paid' | 'owed' | 'none'; via?: string; orderId?: string; txHash?: string };
 }
 

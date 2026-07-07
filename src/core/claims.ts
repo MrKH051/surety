@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { emit } from '../bus.js';
 import { llm } from '../llm.js';
 import { specialistCandidates, type StoreService } from '../store.js';
+import { verifyClaimProof } from './proof.js';
 import {
   createClaim,
   getPolicy,
@@ -33,6 +34,8 @@ export interface ClaimRequest {
   deliverable: string;
   /** Override the payout destination recorded on the policy. */
   payoutAddress?: string;
+  /** Optional tx hash of the claimant's CROO order, verified on Base. */
+  proofTxHash?: string;
 }
 
 /** Deterministic fallback verdict: keyword overlap between ask and delivery. */
@@ -190,6 +193,26 @@ export async function processClaim(rail: PaymentRail, req: ClaimRequest): Promis
   emit({ type: 'agent', agent: 'surety', state: 'working' });
 
   try {
+    // 0) Automatic on-chain proof check. A claimant may attach the tx hash of
+    // their CROO order; Surety verifies it on Base. If a proof is supplied but
+    // is fake/failed/not-a-CROO-tx, that's a fraud signal — deny immediately.
+    const proof = await verifyClaimProof(String(req.proofTxHash ?? '').trim(), policy.createdAt);
+    if (proof.provided && !proof.valid) {
+      policy.status = 'claim_denied';
+      updatePolicy(policy);
+      const claim = createClaim({
+        policyId: policy.policyId,
+        deliverable: deliverable.slice(0, 2000),
+        verdict: 'unsatisfied',
+        confidence: 0,
+        rationale: `Claim denied: the on-chain proof did not verify — ${proof.reason}`,
+        proof: { provided: true, valid: false, txHash: proof.txHash, reason: proof.reason },
+        payout: { amount: 0, status: 'none' },
+      });
+      emit({ type: 'log', level: 'warn', message: `Claim ${claim.claimId} DENIED — invalid on-chain proof (${proof.reason}).` });
+      return claim;
+    }
+
     // 1) Independent second opinion from another team's verification agent.
     const external = await hireVerifier(rail, policy.requirements, deliverable, policy.insuredAgentId);
 
@@ -224,6 +247,10 @@ export async function processClaim(rail: PaymentRail, req: ClaimRequest): Promis
     } catch {
       /* heuristic verdict stands */
     }
+
+    // A verified on-chain proof corroborates that a real order existed, so it
+    // lifts confidence a little; still capped at 1.
+    if (proof.valid) confidence = Math.min(1, confidence + 0.1);
 
     // 3) Payout on approved claims.
     const approved = verdict === 'unsatisfied' && confidence >= config.insurance.minPayoutConfidence;
@@ -269,6 +296,7 @@ export async function processClaim(rail: PaymentRail, req: ClaimRequest): Promis
             },
           }
         : {}),
+      proof: { provided: proof.provided, valid: proof.valid, txHash: proof.txHash, reason: proof.reason },
       payout,
     });
 

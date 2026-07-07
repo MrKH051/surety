@@ -43,6 +43,7 @@ export function claimSummary(opts: {
   via?: string | null;
   txHash?: string;
   verifierName?: string | null;
+  proof?: { provided: boolean; valid: boolean; txHash?: string; reason: string } | null;
 }): string {
   const head = opts.approved
     ? `# ✅ Claim approved — $${opts.refundUsdc} USDC refunded`
@@ -71,6 +72,17 @@ export function claimSummary(opts: {
     `**Verdict:** ${opts.verdict} · **confidence ${Math.round((opts.confidence ?? 0) * 100)}%**`,
     opts.verifierName ? `_Judged independently by **${opts.verifierName}**, hired from another team — never the agent being disputed._` : '',
   );
+
+  // On-chain proof line, if the claimant attached one.
+  if (opts.proof?.provided) {
+    const link = basescan(opts.proof.txHash);
+    lines.push(
+      '',
+      opts.proof.valid
+        ? `🔗 **On-chain proof verified** on Base — ${opts.proof.reason} ${link}`.trim()
+        : `⛔ **On-chain proof failed** — ${opts.proof.reason}`,
+    );
+  }
   return lines.filter((l) => l !== '').join('\n');
 }
 

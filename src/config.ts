@@ -49,6 +49,12 @@ export const config = {
 
     // Native USDC on Base — the fund token for claim-refund transfers.
     usdcAddress: process.env.CROO_USDC_ADDRESS ?? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+
+    // Base RPC used to verify on-chain claim proofs (default: public Base RPC).
+    proofRpcUrl: process.env.CROO_PROOF_RPC_URL ?? process.env.CROO_RPC_URL ?? 'https://mainnet.base.org',
+    // CROO settles orders as ERC-4337 UserOperations through this EntryPoint,
+    // so a genuine order tx is always sent to it — a fabricated hash isn't.
+    entryPoint: (process.env.CROO_ENTRYPOINT ?? '0x0000000071727de22e5e9d8baf0edac6f37da032').toLowerCase(),
   },
 
   // Underwriting & claims parameters (USDC, human units).
